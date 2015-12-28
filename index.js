@@ -58,6 +58,7 @@ module.exports = function(homebridge) {
     Utility.addSupportTo(ItemFactory.ContactItem, ItemFactory.AbstractItem);
     Utility.addSupportTo(ItemFactory.MotionSensorItem, ItemFactory.ContactItem);
     Utility.addSupportTo(ItemFactory.LightSensorItem, ItemFactory.TemperatureSensorItem);
+    Utility.addSupportTo(ItemFactory.Thermostat, ItemFactory.AbstractItem);
 
     homebridge.registerPlatform("homebridge-openhab", "openHAB", OpenHABPlatform);
 };
