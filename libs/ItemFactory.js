@@ -19,13 +19,14 @@ exports.Factory = function(OpenHABPlatform,homebridge) {
     this.log = this.platform.log;
     this.homebridge = homebridge;
     this.itemList = [];
+    this.uniqueIds = [];
 };
 
 exports.Factory.prototype.sitemapUrl = function () {
     var serverString = this.platform.host;
     //TODO da verificare
     if (this.platform.user && this.platform.password) {
-        serverString = this.platform.user + ":" + this.platform.password + "@" + serverString;
+        serverString = encodeURIComponent(this.platform.user) + ":" + encodeURIComponent(this.platform.password) + "@" + serverString;
     }
 
     return this.platform.protocol + "://" + serverString + ":" + this.platform.port + "/rest/sitemaps/" + this.platform.sitemap + "?type=json";
@@ -39,15 +40,34 @@ exports.Factory.prototype.parseSitemap = function (jsonSitemap) {
         if (this.itemList.hasOwnProperty(key)){
 
             this.itemList[key] = exports.Factory.prototype.checkCustomAttrs(this.itemList[key],this.platform);
-
-            if (this.itemList[key].itemType in exports && !this.itemList[key].skipItem) {
-                var accessory = new exports[this.itemList[key].itemType](this.itemList[key], this.platform, this.homebridge);
-            } else {
+            if (!(this.itemList[key].itemType in exports)){
                 this.log("Platform - The widget '" + this.itemList[key].label + "' of type "+this.itemList[key].type+" is an item not handled.");
                 continue;
             }
+            if (this.itemList[key].skipItem) {
+                this.log("Platform - The widget '" + this.itemList[key].label + "' of type "+this.itemList[key].type+" was skipped.");
+                continue;
+            }
 
+            //If itemUniqueAggregationId is definited in the item configuration
+            if (typeof this.itemList[key].itemUniqueAggregationId !== 'undefined') {
+                if (typeof this.uniqueIds[this.itemList[key].itemUniqueAggregationId] !== 'undefined') {
+                    this.log("Platform - New attribute found for " + this.itemList[key].label);
+                    this.uniqueIds[this.itemList[key].itemUniqueAggregationId]['set'+this.itemList[key].itemSubType](this.itemList[key]);
+                    this.log("Platform - The attribute " + this.itemList[key].itemSubType + " is attached to " +this.itemList[key].label);
+                    continue;
+                }
+            }
+
+            var accessory = new exports[this.itemList[key].itemType](this.itemList[key], this.platform, this.homebridge);
             this.log("Platform - Accessory Found: " + this.itemList[key].label);
+
+            if (typeof this.itemList[key].itemUniqueAggregationId !== 'undefined') {
+                this.uniqueIds[this.itemList[key].itemUniqueAggregationId] = accessory;
+                this.log("Platform - New attribute found for " + this.itemList[key].label);
+                this.uniqueIds[this.itemList[key].itemUniqueAggregationId]['set'+this.itemList[key].itemSubType](this.itemList[key]);
+                this.log("Platform - The attribute " + this.itemList[key].itemSubType + " is attached to " +this.itemList[key].label);
+            }
             accessoryList.push(accessory);
         }
     }
@@ -83,6 +103,12 @@ exports.Factory.prototype.checkCustomAttrs = function(widget,platform) {
                 }
                 if (typeof platform.customAttrs[key]['skipItem'] !== 'undefined'){
                     widget.skipItem=platform.customAttrs[key]['skipItem'];
+                }
+                if (typeof platform.customAttrs[key]['itemUniqueAggregationId'] !== 'undefined'){
+                    widget.itemUniqueAggregationId=platform.customAttrs[key]['itemUniqueAggregationId'];
+                }
+                if (typeof platform.customAttrs[key]['itemSubType'] !== 'undefined'){
+                    widget.itemSubType=platform.customAttrs[key]['itemSubType'];
                 }
             }
         }
